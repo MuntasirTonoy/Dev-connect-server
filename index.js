@@ -76,6 +76,17 @@ async function run() {
       }
     });
 
+    // get all posts
+    app.get("/posts", async (req, res) => {
+      try {
+        const posts = await postsCollection.find().toArray();
+        res.json(posts);
+      } catch (error) {
+        console.error("Error fetching posts:", error);
+        res.status(500).json({ error: "Internal server error" });
+      }
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(

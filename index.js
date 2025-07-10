@@ -102,6 +102,53 @@ async function run() {
       }
     });
 
+    // Update votes
+    app.patch("/posts/:id/vote", async (req, res) => {
+      const { id } = req.params;
+      const { userEmail, voteType } = req.body;
+
+      try {
+        const post = await postsCollection.findOne({ _id: new ObjectId(id) });
+        if (!post) return res.status(404).json({ error: "Post not found" });
+
+        let upVote = post.upVote || [];
+        let downVote = post.downVote || [];
+
+        if (voteType === "upvote") {
+          // remove from downVote if exists
+          downVote = downVote.filter((email) => email !== userEmail);
+          // toggle upvote
+          if (upVote.includes(userEmail)) {
+            upVote = upVote.filter((email) => email !== userEmail);
+          } else {
+            upVote.push(userEmail);
+          }
+        } else if (voteType === "downvote") {
+          // remove from upVote if exists
+          upVote = upVote.filter((email) => email !== userEmail);
+          // toggle downvote
+          if (downVote.includes(userEmail)) {
+            downVote = downVote.filter((email) => email !== userEmail);
+          } else {
+            downVote.push(userEmail);
+          }
+        }
+
+        const result = await postsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { upVote, downVote } }
+        );
+
+        res.json({
+          upVoteCount: upVote.length,
+          downVoteCount: downVote.length,
+        });
+      } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Vote update failed" });
+      }
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(

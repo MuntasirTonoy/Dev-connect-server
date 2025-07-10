@@ -87,6 +87,21 @@ async function run() {
       }
     });
 
+    // GET post by ID
+    app.get("/posts/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const post = await postsCollection.findOne({ _id: new ObjectId(id) });
+        if (!post) {
+          return res.status(404).json({ error: "Post not found" });
+        }
+        res.json(post);
+      } catch (error) {
+        console.error("Error fetching post by ID:", error);
+        res.status(500).json({ error: "Internal server error" });
+      }
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(

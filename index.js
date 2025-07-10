@@ -64,6 +64,18 @@ async function run() {
       }
     });
 
+    // POST a new post
+    app.post("/posts", async (req, res) => {
+      try {
+        const postData = req.body;
+        const result = await postsCollection.insertOne(postData);
+        res.status(201).json(result);
+      } catch (error) {
+        console.error("Error creating post:", error);
+        res.status(500).json({ error: "Internal server error" });
+      }
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(

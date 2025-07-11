@@ -109,6 +109,29 @@ async function run() {
       }
     });
 
+    // DELETE a post by ID
+    app.delete("/posts/:id", async (req, res) => {
+      const id = req.params.id;
+      try {
+        const result = await postsCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
+
+        if (result.deletedCount === 1) {
+          res.send({ success: true, message: "Post deleted successfully" });
+        } else {
+          res.status(404).send({ success: false, message: "Post not found" });
+        }
+      } catch (err) {
+        console.error("Delete Error:", err); // Log error to terminal
+        res.status(500).send({
+          success: false,
+          message: "Internal server error",
+          error: err.message,
+        });
+      }
+    });
+
     // Update votes
     app.patch("/posts/:id/vote", async (req, res) => {
       const { id } = req.params;

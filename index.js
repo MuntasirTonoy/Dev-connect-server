@@ -28,6 +28,7 @@ async function run() {
     const database = client.db("devConnect");
     const postsCollection = database.collection("posts");
     const usersCollection = database.collection("users");
+    const tagsCollection = database.collection("tags");
     const announcementsCollection = database.collection("announcements");
 
     // PUT /users - Store user if not exists
@@ -155,7 +156,18 @@ async function run() {
       }
     });
 
-    // announcement api
+    // tags get api
+    app.get("/tags", async (req, res) => {
+      try {
+        const tags = await tagsCollection.find().toArray();
+        res.json(tags);
+      } catch (err) {
+        console.error("Error fetching tags:", err);
+        res.status(500).json({ error: "Failed to fetch tags" });
+      }
+    });
+
+    // announcement get api
     app.get("/announcements", async (req, res) => {
       try {
         const announcements = await announcementsCollection.find().toArray();

@@ -28,6 +28,7 @@ async function run() {
     const database = client.db("devConnect");
     const postsCollection = database.collection("posts");
     const usersCollection = database.collection("users");
+    const announcementsCollection = database.collection("announcements");
 
     // PUT /users - Store user if not exists
     app.put("/users", async (req, res) => {
@@ -154,11 +155,10 @@ async function run() {
       }
     });
 
-    // Single API endpoint
+    // announcement api
     app.get("/announcements", async (req, res) => {
       try {
-        const collection = db.collection("announcements");
-        const announcements = await collection.find().toArray();
+        const announcements = await announcementsCollection.find().toArray();
         res.json(announcements);
       } catch (err) {
         console.error("Error fetching announcements:", err);

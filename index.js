@@ -24,7 +24,6 @@ async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
-    console.log("MongoDB connected successfully");
 
     const database = client.db("devConnect");
     const postsCollection = database.collection("posts");
@@ -75,11 +74,17 @@ async function run() {
         res.status(500).json({ error: "Internal server error" });
       }
     });
-
-    // get all posts
+    // get posts
     app.get("/posts", async (req, res) => {
       try {
-        const posts = await postsCollection.find().toArray();
+        const email = req.query.email;
+        let query = {};
+
+        if (email) {
+          query = { authorEmail: email };
+        }
+
+        const posts = await postsCollection.find(query).toArray();
         res.json(posts);
       } catch (error) {
         console.error("Error fetching posts:", error);
@@ -149,14 +154,25 @@ async function run() {
       }
     });
 
+    // Single API endpoint
+    app.get("/announcements", async (req, res) => {
+      try {
+        const collection = db.collection("announcements");
+        const announcements = await collection.find().toArray();
+        res.json(announcements);
+      } catch (err) {
+        console.error("Error fetching announcements:", err);
+        res.status(500).json({ error: "Failed to fetch announcements" });
+      }
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
-  } finally {
-    // Ensures that the client will close when you finish/error
-    // await client.close();
+  } catch (err) {
+    console.error("❌ Error connecting to MongoDB:", err);
   }
 }
 run().catch(console.dir);

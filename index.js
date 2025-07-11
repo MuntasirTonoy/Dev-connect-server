@@ -29,6 +29,7 @@ async function run() {
     const postsCollection = database.collection("posts");
     const usersCollection = database.collection("users");
     const tagsCollection = database.collection("tags");
+    const commentsCollection = database.collection("comments");
     const announcementsCollection = database.collection("announcements");
 
     // PUT /users - Store user if not exists
@@ -187,6 +188,70 @@ async function run() {
       } catch (err) {
         console.error("Error fetching tags:", err);
         res.status(500).json({ error: "Failed to fetch tags" });
+      }
+    });
+
+    // POST /comments - Add a comment
+    app.post("/comments", async (req, res) => {
+      const comment = req.body;
+
+      if (!comment.postId || !comment.message || !comment.name) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Missing required fields" });
+      }
+
+      try {
+        comment.createdAt = new Date();
+        const result = await commentsCollection.insertOne(comment);
+        res.status(201).json({ success: true, insertedId: result.insertedId });
+      } catch (error) {
+        console.error("Error saving comment:", error);
+        res
+          .status(500)
+          .json({ success: false, message: "Failed to save comment" });
+      }
+    });
+
+    // GET /comments/:postId - Get all comments for a specific post
+    app.get("/comments/:postId", async (req, res) => {
+      const postId = req.params.postId;
+
+      try {
+        const comments = await commentsCollection
+          .find({ postId })
+          .sort({ createdAt: -1 }) // Newest first
+          .toArray();
+
+        res.json(comments);
+      } catch (error) {
+        console.error("Error fetching comments:", error);
+        res
+          .status(500)
+          .json({ success: false, message: "Failed to fetch comments" });
+      }
+    });
+
+    // DELETE a comment by ID
+    app.delete("/comments/:id", async (req, res) => {
+      const commentId = req.params.id;
+      try {
+        const result = await commentsCollection.deleteOne({
+          _id: new ObjectId(commentId),
+        });
+
+        if (result.deletedCount === 1) {
+          res.send({ success: true, message: "Comment deleted successfully" });
+        } else {
+          res
+            .status(404)
+            .send({ success: false, message: "Comment not found" });
+        }
+      } catch (error) {
+        console.error("Error deleting comment:", error);
+        res
+          .status(500)
+          .json({ success: false, message: "Failed to delete comment" });
       }
     });
 

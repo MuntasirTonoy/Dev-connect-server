@@ -3,3 +3,4 @@ npm-debug.log*
 .env
 dist
 .vercel
+serviceAccountKey.json

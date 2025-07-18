@@ -3,6 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const admin = require("firebase-admin");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 // Initialize Firebase Admin with service account JSON file
 admin.initializeApp({
@@ -38,10 +39,11 @@ const verifyToken = async (req, res, next) => {
 
   try {
     const decodedToken = await admin.auth().verifyIdToken(token);
+    console.log("✅ Decoded Firebase token:", decodedToken); // <-- ADD THIS LINE
     req.user = decodedToken; // attach user info to req.user
     next();
   } catch (err) {
-    console.error("Token verification failed:", err);
+    console.error("❌ Token verification failed:", err);
     res.status(403).json({ message: "Forbidden - Invalid token" });
   }
 };
@@ -161,24 +163,6 @@ async function run() {
     });
 
     // GET /posts/search?tag=React - no auth required
-    app.get("/posts/search", async (req, res) => {
-      const { tag } = req.query;
-      if (!tag) return res.status(400).json({ error: "Tag is required" });
-
-      try {
-        const posts = await postsCollection
-          .find({
-            tag: { $regex: tag, $options: "i" },
-          })
-          .sort({ timeOfPost: -1 })
-          .toArray();
-
-        res.json(posts);
-      } catch (err) {
-        console.error("Search error:", err);
-        res.status(500).json({ error: err.message });
-      }
-    });
 
     // DELETE a post by ID (protected)
     app.delete("/posts/:id", verifyToken, async (req, res) => {
@@ -220,9 +204,11 @@ async function run() {
 
     // PATCH /posts/:id/vote - update votes (protected)
     app.patch("/posts/:id/vote", verifyToken, async (req, res) => {
+      console.log("🛠️ Vote route hit!");
       const { id } = req.params;
       const { voteType } = req.body;
-      const userEmail = req.user.email;
+      const userEmail = req.user?.email;
+      console.log("🔥 Voting user email:", userEmail);
 
       try {
         const post = await postsCollection.findOne({ _id: new ObjectId(id) });
@@ -285,6 +271,7 @@ async function run() {
 
       try {
         comment.name = req.user.name || "Anonymous"; // optionally add name from token
+        comment.email = req.user.email; // ✅ Add this line
         comment.createdAt = new Date();
 
         const result = await commentsCollection.insertOne(comment);
@@ -382,6 +369,31 @@ async function run() {
         res
           .status(500)
           .json({ success: false, message: "Failed to update feedback" });
+      }
+    });
+
+    // payment api
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+
+      // ✅ Log incoming price
+      console.log("Received price for payment intent:", price);
+
+      if (typeof price !== "number" || price <= 0) {
+        return res.status(400).json({ error: "Invalid price provided" });
+      }
+
+      try {
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: Math.round(price * 100), // Stripe expects the amount in cents
+          currency: "usd",
+          payment_method_types: ["card"],
+        });
+
+        res.send({ clientSecret: paymentIntent.client_secret });
+      } catch (error) {
+        console.error("Stripe error:", error.message);
+        res.status(500).json({ error: "Payment intent creation failed" });
       }
     });
 

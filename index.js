@@ -397,6 +397,39 @@ async function run() {
       }
     });
 
+    // PATCH /users/payment-status - update user's payment status (protected)
+    app.patch("/users/payment-status", verifyToken, async (req, res) => {
+      const { email } = req.body;
+
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      try {
+        const result = await usersCollection.updateOne(
+          { email },
+          { $set: { paymentStatus: "paid" } }
+        );
+
+        if (result.modifiedCount > 0) {
+          res.json({
+            success: true,
+            message: "Payment status updated to paid",
+          });
+        } else {
+          res
+            .status(404)
+            .json({
+              success: false,
+              message: "User not found or already paid",
+            });
+        }
+      } catch (error) {
+        console.error("Error updating payment status:", error);
+        res.status(500).json({ message: "Failed to update payment status" });
+      }
+    });
+
     // GET /announcements - no auth required
     app.get("/announcements", async (req, res) => {
       try {

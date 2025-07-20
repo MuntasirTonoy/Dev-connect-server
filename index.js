@@ -138,8 +138,13 @@ async function run() {
     app.get("/posts", async (req, res) => {
       try {
         const email = req.query.email;
+        const tag = req.query.tag;
+
         let query = {};
         if (email) query = { authorEmail: email };
+        if (tag) {
+          query.tag = tag;
+        }
 
         const posts = await postsCollection.find(query).toArray();
         res.json(posts);
@@ -417,12 +422,10 @@ async function run() {
             message: "Payment status updated to paid",
           });
         } else {
-          res
-            .status(404)
-            .json({
-              success: false,
-              message: "User not found or already paid",
-            });
+          res.status(404).json({
+            success: false,
+            message: "User not found or already paid",
+          });
         }
       } catch (error) {
         console.error("Error updating payment status:", error);

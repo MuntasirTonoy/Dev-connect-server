@@ -167,8 +167,6 @@ async function run() {
       }
     });
 
-    // GET /posts/search?tag=React - no auth required
-
     // DELETE a post by ID (protected)
     app.delete("/posts/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
@@ -305,6 +303,21 @@ async function run() {
         res
           .status(500)
           .json({ success: false, message: "Failed to fetch comments" });
+      }
+    });
+
+    // GET /reported-comments - fetch comments with non-empty feedback
+    app.get("/reported-comments", async (req, res) => {
+      try {
+        const reportedComments = await commentsCollection
+          .find({ feedback: { $ne: "" } }) // feedback not equal to empty string
+          .sort({ createdAt: -1 })
+          .toArray();
+
+        res.json(reportedComments);
+      } catch (error) {
+        console.error("Error fetching reported comments:", error);
+        res.status(500).json({ error: "Failed to fetch reported comments" });
       }
     });
 

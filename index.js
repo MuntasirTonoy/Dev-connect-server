@@ -51,7 +51,6 @@ const verifyToken = async (req, res, next) => {
 async function run() {
   try {
     await client.connect();
-
     const database = client.db("devConnect");
     const postsCollection = database.collection("posts");
     const usersCollection = database.collection("users");
@@ -60,9 +59,9 @@ async function run() {
     const announcementsCollection = database.collection("announcements");
 
     // PUT /users - store user if not exists (no auth needed here)
-    app.put("/users", async (req, res) => {
+    app.post("/users", async (req, res) => {
       const { name, email, photoURL } = req.body;
-
+      console.log("line:64", { name, email, photoURL });
       if (!email) {
         return res.status(400).json({ message: "Email is required" });
       }
@@ -90,6 +89,17 @@ async function run() {
       } catch (error) {
         console.error("Error in /users:", error);
         res.status(500).json({ message: "Failed to store user" });
+      }
+    });
+
+    // GET /users - fetch all users (protected)
+    app.get("/users", verifyToken, async (req, res) => {
+      try {
+        const users = await usersCollection.find().toArray();
+        res.json(users);
+      } catch (error) {
+        console.error("Error fetching users:", error);
+        res.status(500).json({ message: "Failed to fetch users" });
       }
     });
 
@@ -360,33 +370,59 @@ async function run() {
       }
     });
 
-    // PATCH /comments/:id - add feedback to comment (protected)
-    app.patch("/comments/:id", verifyToken, async (req, res) => {
-      const commentId = req.params.id;
-      const { feedback } = req.body;
+    // patch user role
+    app.patch("/users/admin", verifyToken, async (req, res) => {
+      const { email, role } = req.body;
 
-      if (!feedback) {
-        return res.status(400).json({ message: "Feedback is required" });
+      if (!email || !role) {
+        return res.status(400).json({ message: "Email and role are required" });
       }
 
       try {
-        const result = await commentsCollection.updateOne(
-          { _id: new ObjectId(commentId) },
-          { $set: { feedback } }
+        // 1. Confirm the requester is an admin
+        const requesterEmail = req.user?.email;
+        const requester = await usersCollection.findOne({
+          email: requesterEmail,
+        });
+
+        if (!requester || requester.role !== "admin") {
+          return res.status(403).json({ message: "Forbidden - Admins only" });
+        }
+
+        // 2. Check if target user exists
+        const user = await usersCollection.findOne({ email });
+
+        if (!user) {
+          return res.status(404).json({ message: "User not found" });
+        }
+
+        // 3. Avoid redundant updates
+        if (user.role === role) {
+          return res
+            .status(400)
+            .json({ message: `User already has role "${role}"` });
+        }
+
+        // 4. Update the user role
+        const result = await usersCollection.updateOne(
+          { email },
+          { $set: { role } }
         );
 
         if (result.modifiedCount > 0) {
-          res.json({ success: true, message: "Feedback added" });
+          res.json({
+            success: true,
+            message: `User role updated to "${role}"`,
+          });
         } else {
-          res
-            .status(404)
-            .json({ success: false, message: "Comment not found" });
+          res.status(500).json({
+            success: false,
+            message: "Failed to update user role",
+          });
         }
-      } catch (err) {
-        console.error("Feedback update error:", err);
-        res
-          .status(500)
-          .json({ success: false, message: "Failed to update feedback" });
+      } catch (error) {
+        console.error("Error updating user role:", error);
+        res.status(500).json({ message: "Internal server error" });
       }
     });
 
@@ -454,6 +490,74 @@ async function run() {
       } catch (err) {
         console.error("Error fetching announcements:", err);
         res.status(500).json({ error: "Failed to fetch announcements" });
+      }
+    });
+
+    // POST /announcements - create announcement (protected, admin only)
+    app.post("/announcements", verifyToken, async (req, res) => {
+      const { title, message } = req.body;
+
+      if (!title || !message) {
+        return res
+          .status(400)
+          .json({ message: "Title and message are required" });
+      }
+
+      try {
+        const requesterEmail = req.user.email;
+        const user = await usersCollection.findOne({ email: requesterEmail });
+
+        if (!user || user.role !== "admin") {
+          return res.status(403).json({ message: "Forbidden - Admins only" });
+        }
+
+        const announcement = {
+          title,
+          message,
+          postedAt: new Date().toISOString(),
+          author: {
+            name: user.name || "Anonymous",
+            image: user.photoURL || "https://i.pravatar.cc/100",
+            role: "Admin",
+          },
+        };
+
+        const result = await announcementsCollection.insertOne(announcement);
+        res.status(201).json({
+          success: true,
+          message: "Announcement created",
+          insertedId: result.insertedId,
+        });
+      } catch (err) {
+        console.error("Error creating announcement:", err);
+        res.status(500).json({ message: "Failed to create announcement" });
+      }
+    });
+    // DELETE /announcements/:id - admin only
+    app.delete("/announcements/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+
+      try {
+        const requester = await usersCollection.findOne({
+          email: req.user.email,
+        });
+
+        if (!requester || requester.role !== "admin") {
+          return res.status(403).json({ message: "Forbidden - Admins only" });
+        }
+
+        const result = await announcementsCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
+
+        if (result.deletedCount === 1) {
+          res.json({ success: true, message: "Announcement deleted" });
+        } else {
+          res.status(404).json({ message: "Announcement not found" });
+        }
+      } catch (error) {
+        console.error("Error deleting announcement:", error);
+        res.status(500).json({ message: "Internal server error" });
       }
     });
 

@@ -339,14 +339,23 @@ async function run() {
         const comment = await commentsCollection.findOne({
           _id: new ObjectId(commentId),
         });
+
         if (!comment) {
           return res
             .status(404)
-            .send({ success: false, message: "Comment not found" });
+            .json({ success: false, message: "Comment not found" });
         }
 
-        // Optional: Only comment owner or admins can delete
-        if (req.user.email !== comment.email) {
+        // Get the requester user info
+        const requester = await usersCollection.findOne({
+          email: req.user.email,
+        });
+
+        // Only allow comment owner OR admin to delete
+        const isOwner = req.user.email === comment.email;
+        const isAdmin = requester?.role === "admin";
+
+        if (!isOwner && !isAdmin) {
           return res.status(403).json({
             message: "Forbidden - Not allowed to delete this comment",
           });
@@ -355,12 +364,13 @@ async function run() {
         const result = await commentsCollection.deleteOne({
           _id: new ObjectId(commentId),
         });
+
         if (result.deletedCount === 1) {
           res.send({ success: true, message: "Comment deleted successfully" });
         } else {
           res
             .status(404)
-            .send({ success: false, message: "Comment not found" });
+            .json({ success: false, message: "Comment not found" });
         }
       } catch (error) {
         console.error("Error deleting comment:", error);

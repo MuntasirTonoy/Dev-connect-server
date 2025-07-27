@@ -261,6 +261,47 @@ async function run() {
       }
     });
 
+    // POST /tags - add a new tag (admin only)
+    app.post("/tags", verifyToken, async (req, res) => {
+      const { value, label, slug, category, popularity } = req.body;
+
+      if (!value || !label || !slug || !category || popularity === undefined) {
+        return res
+          .status(400)
+          .json({ message: "Missing required fields for tag" });
+      }
+
+      try {
+        const requester = await usersCollection.findOne({
+          email: req.user.email,
+        });
+
+        if (!requester || requester.role !== "admin") {
+          return res.status(403).json({ message: "Forbidden - Admins only" });
+        }
+
+        const tag = {
+          value,
+          label,
+          slug,
+          category,
+          popularity,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        const result = await tagsCollection.insertOne(tag);
+        res.status(201).json({
+          success: true,
+          message: "Tag created successfully",
+          insertedId: result.insertedId,
+        });
+      } catch (error) {
+        console.error("Error adding tag:", error);
+        res.status(500).json({ message: "Failed to add tag" });
+      }
+    });
+
     // GET /tags - no auth required
     app.get("/tags", async (req, res) => {
       try {
@@ -294,6 +335,29 @@ async function run() {
         res
           .status(500)
           .json({ success: false, message: "Failed to save comment" });
+      }
+    });
+
+    // GET /comments - fetch all comments (admin only)
+    app.get("/comments", verifyToken, async (req, res) => {
+      try {
+        const requester = await usersCollection.findOne({
+          email: req.user.email,
+        });
+
+        if (!requester || requester.role !== "admin") {
+          return res.status(403).json({ message: "Forbidden - Admins only" });
+        }
+
+        const comments = await commentsCollection
+          .find()
+          .sort({ createdAt: -1 }) // optional: newest first
+          .toArray();
+
+        res.json(comments);
+      } catch (error) {
+        console.error("Error fetching all comments:", error);
+        res.status(500).json({ message: "Failed to fetch all comments" });
       }
     });
 

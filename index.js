@@ -50,7 +50,7 @@ const verifyToken = async (req, res, next) => {
 
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
     const database = client.db("devConnect");
     const postsCollection = database.collection("posts");
     const usersCollection = database.collection("users");
@@ -635,10 +635,10 @@ async function run() {
       }
     });
 
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } catch (err) {
     console.error("❌ Error connecting to MongoDB:", err);
   }

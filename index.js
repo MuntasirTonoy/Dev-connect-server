@@ -95,7 +95,19 @@ async function run() {
     // GET /users - fetch all users (protected)
     app.get("/users", verifyToken, async (req, res) => {
       try {
-        const users = await usersCollection.find().toArray();
+        const search = req.query.search || "";
+
+        let query = {};
+        if (search) {
+          query = {
+            $or: [
+              { name: { $regex: search, $options: "i" } }, // case-insensitive name search
+              { email: { $regex: search, $options: "i" } }, // case-insensitive email search
+            ],
+          };
+        }
+
+        const users = await usersCollection.find(query).toArray();
         res.json(users);
       } catch (error) {
         console.error("Error fetching users:", error);
